@@ -44,7 +44,7 @@ function do_cpython_build {
     fi
     local prefix="/opt/_internal/cpython-${py_ver}${dir_suffix}"
     mkdir -p ${prefix}/lib
-    ./configure --prefix=${prefix} --disable-shared $unicode_flags > /dev/null
+    ./configure --prefix=${prefix} --enable-shared $unicode_flags > /dev/null
     make -j2 > /dev/null
     make install > /dev/null
     popd
@@ -57,6 +57,7 @@ function do_cpython_build {
     # --force-reinstall is to work around:
     #   https://github.com/pypa/pip/issues/5220
     #   https://github.com/pypa/get-pip/issues/19
+    export LD_LIBRARY_PATH=${prefix}/lib
     ${prefix}/bin/python get-pip.py --force-reinstall
     if [ -e ${prefix}/bin/pip3 ] && [ ! -e ${prefix}/bin/pip ]; then
         ln -s pip3 ${prefix}/bin/pip
@@ -66,6 +67,7 @@ function do_cpython_build {
     ${prefix}/bin/pip install -U --require-hashes -r ${MY_DIR}/requirements.txt
     local abi_tag=$(${prefix}/bin/python ${MY_DIR}/python-tag-abi-tag.py)
     ln -s ${prefix} /opt/python/${abi_tag}
+    unset LD_LIBRARY_PATH
 }
 
 

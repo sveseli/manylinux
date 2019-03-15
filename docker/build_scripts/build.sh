@@ -74,6 +74,8 @@ yum -y install \
     file \
     make \
     patch \
+    perl-Pod-Simple \
+    rsync \
     unzip \
     which \
     yasm \
@@ -121,8 +123,10 @@ mkdir -p /opt/python
 build_cpythons $CPYTHON_VERSIONS
 
 PY36_BIN=/opt/python/cp36-cp36m/bin
+PY36_LIB=/opt/python/cp36-cp36m/lib
 
 # Install certifi and auditwheel
+export LD_LIBRARY_PATH=$PY36_LIB
 $PY36_BIN/pip install --require-hashes -r $MY_DIR/py36-requirements.txt
 
 # Our openssl doesn't know how to find the system CA trust store
@@ -145,7 +149,15 @@ tar -xzf patchelf.tar.gz
 (cd patchelf-$PATCHELF_VERSION && ./bootstrap.sh && do_standard_install)
 rm -rf patchelf.tar.gz patchelf-$PATCHELF_VERSION
 
-ln -s $PY36_BIN/auditwheel /usr/local/bin/auditwheel
+# auditwheel needs LD_LIBRARY_PATH set 
+#ln -s $PY36_BIN/auditwheel /usr/local/bin/auditwheel
+AUDITWHEEL_BIN=/usr/local/bin/auditwheel
+cat > $AUDITWHEEL_BIN << EOF
+#!/bin/sh
+export LD_LIBRARY_PATH=$PY36_LIB
+$PY36_BIN/auditwheel \$@
+EOF
+chmod a+x $AUDITWHEEL_BIN
 
 # Clean up development headers and other unnecessary stuff for
 # final image
@@ -180,10 +192,21 @@ find /opt/_internal -depth \
 for PYTHON in /opt/python/*/bin/python; do
     # Smoke test to make sure that our Pythons work, and do indeed detect as
     # being manylinux compatible:
+    PY_BIN_DIR=`dirname $PYTHON`
+    PY_LIB_DIR=`dirname $PY_BIN_DIR`/lib
+    export LD_LIBRARY_PATH=$PY_LIB_DIR
+    echo "Testing: $PYTHON (LD_LIBRARY_PATH=$LD_LIBRARY_PATH)"
     $PYTHON $MY_DIR/manylinux1-check.py
     # Make sure that SSL cert checking works
     $PYTHON $MY_DIR/ssl-check.py
+
+    echo "Installing pip packages for $PYTHON"
+    $PY_BIN_DIR/pip install numpy sphinx twine
 done
 
 # Fix libc headers to remain compatible with C99 compilers.
 find /usr/include/ -type f -exec sed -i 's/\bextern _*inline_*\b/extern __inline __attribute__ ((__gnu_inline__))/g' {} +
+
+# Fix gcc links for epics build
+ln -s /opt/rh/devtoolset-2/root/usr/bin/gcc /usr/bin
+ln -s /opt/rh/devtoolset-2/root/usr/bin/g++ /usr/bin
