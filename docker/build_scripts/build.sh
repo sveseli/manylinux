@@ -124,6 +124,8 @@ build_cpythons $CPYTHON_VERSIONS
 
 PY36_BIN=/opt/python/cp36-cp36m/bin
 PY36_LIB=/opt/python/cp36-cp36m/lib
+PY37_BIN=/opt/python/cp37-cp37m/bin
+PY37_LIB=/opt/python/cp37-cp37m/lib
 
 # Install certifi and auditwheel
 export LD_LIBRARY_PATH=$PY36_LIB
@@ -158,6 +160,15 @@ export LD_LIBRARY_PATH=$PY36_LIB
 $PY36_BIN/auditwheel \$@
 EOF
 chmod a+x $AUDITWHEEL_BIN
+
+# twine needs LD_LIBRARY_PATH set 
+TWINE_BIN=/usr/local/bin/twine
+cat > $TWINE_BIN << EOF
+#!/bin/sh
+export LD_LIBRARY_PATH=$PY37_LIB
+$PY37_BIN/twine \$@
+EOF
+chmod a+x $TWINE_BIN
 
 # Clean up development headers and other unnecessary stuff for
 # final image
