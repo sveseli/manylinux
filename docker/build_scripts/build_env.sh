@@ -1,7 +1,7 @@
 # source me
 
 PYTHON_DOWNLOAD_URL=https://www.python.org/ftp/python
-CPYTHON_VERSIONS="2.7.17 3.4.10 3.5.9 3.6.9 3.7.5 3.8.0"
+CPYTHON_VERSIONS="2.7.17 3.4.10 3.5.9 3.6.10 3.7.6 3.8.1"
 
 # openssl version to build, with expected sha256 hash of .tar.gz
 # archive.
