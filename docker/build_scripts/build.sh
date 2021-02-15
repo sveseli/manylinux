@@ -212,7 +212,9 @@ for PYTHON in /opt/python/*/bin/python; do
     $PYTHON $MY_DIR/ssl-check.py
 
     echo "Installing pip packages for $PYTHON"
-    $PY_BIN_DIR/pip install numpy sphinx sphinx_rtd_theme twine || echo "Could not install all pip packages for $PYTHON"
+    $PY_BIN_DIR/pip install numpy sphinx sphinx_rtd_theme || echo "Could not install all pip packages for $PYTHON"
+    $PY_BIN_DIR/pip install nose  || echo "Could not install nose pip package for $PYTHON"
+    $PY_BIN_DIR/pip install twine || echo "Could not install twine pip package for $PYTHON"
 done
 
 # Fix libc headers to remain compatible with C99 compilers.
