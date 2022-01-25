@@ -33,7 +33,7 @@ source $MY_DIR/build_utils.sh
 
 # MANYLINUX_DEPS: Install development packages (except for libgcc which is provided by gcc install)
 if [ "${AUDITWHEEL_POLICY}" == "manylinux2010" ] || [ "${AUDITWHEEL_POLICY}" == "manylinux2014" ]; then
-	MANYLINUX_DEPS="glibc-devel libstdc++-devel glib2-devel libX11-devel libXext-devel libXrender-devel mesa-libGL-devel libICE-devel libSM-devel zlib-devel expat-devel"
+	MANYLINUX_DEPS="glibc-devel libstdc++-devel glib2-devel libX11-devel libXext-devel libXrender-devel mesa-libGL-devel libICE-devel libSM-devel zlib-devel expat-devel gcc gcc-c++"
 elif [ "${AUDITWHEEL_POLICY}" == "manylinux_2_24" ]; then
 	MANYLINUX_DEPS="libc6-dev libstdc++-6-dev libglib2.0-dev libx11-dev libxext-dev libxrender-dev libgl1-mesa-dev libice-dev libsm-dev libz-dev libexpat1-dev"
 elif [ "${AUDITWHEEL_POLICY}" == "musllinux_1_1" ]; then

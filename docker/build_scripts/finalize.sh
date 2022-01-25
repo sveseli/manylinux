@@ -108,5 +108,5 @@ hardlink -cv /opt/_internal
 LC_ALL=C ${MY_DIR}/update-system-packages.sh
 
 # Add links for EPICS
-ln -s /opt/rh/devtoolset-10/root/usr/bin/gcc /usr/bin/gcc
-ln -s /opt/rh/devtoolset-10/root/usr/bin/g++ /usr/bin/g++
+#ln -s /opt/rh/devtoolset-10/root/usr/bin/gcc /usr/bin/gcc
+#ln -s /opt/rh/devtoolset-10/root/usr/bin/g++ /usr/bin/g++
