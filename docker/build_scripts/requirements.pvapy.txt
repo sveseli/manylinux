@@ -1,0 +1,6 @@
+numpy!=1.21.*
+sphinx
+sphinx_rtd_theme
+patchelf
+auditwheel
+twine
