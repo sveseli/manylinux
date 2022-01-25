@@ -163,6 +163,7 @@ COPY build_scripts/finalize.sh \
      build_scripts/requirements3.9.txt \
      build_scripts/requirements3.10.txt \
      build_scripts/requirements-base-tools.txt \
+     build_scripts/requirements.pvapy.txt \
      /build_scripts/
 COPY build_scripts/requirements-tools/* /build_scripts/requirements-tools/
 RUN manylinux-entrypoint /build_scripts/finalize.sh && rm -rf /build_scripts

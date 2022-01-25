@@ -13,6 +13,7 @@ mkdir /opt/python
 for PREFIX in $(find /opt/_internal/ -mindepth 1 -maxdepth 1 \( -name 'cpython*' -o -name 'pypy*' \)); do
 	# Some python's install as bin/python3. Make them available as
 	# bin/python.
+        export LD_LIBRARY_PATH=${PREFIX}/lib
 	if [ -e ${PREFIX}/bin/python3 ] && [ ! -e ${PREFIX}/bin/python ]; then
 		ln -s python3 ${PREFIX}/bin/python
 	fi
@@ -33,10 +34,26 @@ for PREFIX in $(find /opt/_internal/ -mindepth 1 -maxdepth 1 \( -name 'cpython*'
 	else
 		ln -s ${PREFIX}/bin/python /usr/local/bin/python${PY_VER}
 	fi
+
+        # PVAPY stuff
+        IS_CP_ABI_TAG=`echo ${PREFIX} | grep cpython || /bin/true`
+        if [ ! -z "$IS_CP_ABI_TAG" ]; then
+            echo "Installing PVAPY requirements for ${ABI_TAG}"
+            PVAPY_ENV=/opt/pvapy/python-${PY_VER}
+            mkdir -p $PVAPY_ENV/etc
+            SETUP_FILE=$PVAPY_ENV/etc/setup.sh
+            cat > $SETUP_FILE << EOF
+#!/bin/sh
+export LD_LIBRARY_PATH=/opt/python/${ABI_TAG}/lib
+export PATH=/opt/python/${ABI_TAG}/bin:$PATH
+EOF
+            /opt/python/${ABI_TAG}/bin/python -m pip install -r ${MY_DIR}/requirements.pvapy.txt
+        fi
 done
 
 # Create venv for auditwheel & certifi
 TOOLS_PATH=/opt/_internal/tools
+export LD_LIBRARY_PATH=/opt/python/cp39-cp39/lib
 /opt/python/cp39-cp39/bin/python -m venv $TOOLS_PATH
 source $TOOLS_PATH/bin/activate
 
@@ -89,3 +106,7 @@ hardlink -cv /opt/_internal
 
 # update system packages
 LC_ALL=C ${MY_DIR}/update-system-packages.sh
+
+# Add links for EPICS
+ln -s /opt/rh/devtoolset-10/root/usr/bin/gcc /usr/bin/gcc
+ln -s /opt/rh/devtoolset-10/root/usr/bin/g++ /usr/bin/g++

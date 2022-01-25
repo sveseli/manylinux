@@ -46,7 +46,8 @@ fi
 ./configure \
 	CFLAGS_NODIST="${MANYLINUX_CFLAGS} ${MANYLINUX_CPPFLAGS}" \
 	LDFLAGS_NODIST="${MANYLINUX_LDFLAGS}" \
-	--prefix=${PREFIX} --disable-shared --with-ensurepip=no > /dev/null
+	--prefix=${PREFIX} --enable-shared --with-ensurepip=no > /dev/null
+#	--prefix=${PREFIX} --disable-shared --with-ensurepip=no > /dev/null
 make > /dev/null
 make install > /dev/null
 if [ "${AUDITWHEEL_POLICY}" == "manylinux2010" ]; then

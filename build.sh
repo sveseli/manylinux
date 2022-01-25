@@ -4,6 +4,9 @@
 
 PLATFORM=${PLATFORM:-`uname -m`}
 TRAVIS_COMMIT=${TRAVIS_COMMIT:-latest}
+POLICY=${POLICY:-manylinux2014}
+COMMIT_SHA=${COMMIT_SHA:-latest}
+MANYLINUX_BUILD_FRONTEND=${MANYLINUX_BUILD_FRONTEND:-docker}
 
 # Stop at any error, show all commands
 set -exuo pipefail
@@ -84,7 +87,7 @@ export LD_LIBRARY_PATH_ARG
 BUILD_ARGS_COMMON="
 	--build-arg POLICY --build-arg PLATFORM --build-arg BASEIMAGE
 	--build-arg DEVTOOLSET_ROOTPATH --build-arg PREPEND_PATH --build-arg LD_LIBRARY_PATH_ARG
-	--rm -t quay.io/pypa/${POLICY}_${PLATFORM}:${COMMIT_SHA}
+	--rm -t pvapy-${POLICY}-${PLATFORM}:${COMMIT_SHA}
 	-f docker/Dockerfile docker/
 "
 

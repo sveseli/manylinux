@@ -45,7 +45,7 @@ fi
 
 # RUNTIME_DEPS: Runtime dependencies. c.f. install-build-packages.sh
 if [ "${AUDITWHEEL_POLICY}" == "manylinux2010" ] || [ "${AUDITWHEEL_POLICY}" == "manylinux2014" ]; then
-	RUNTIME_DEPS="zlib bzip2 expat ncurses readline tk gdbm libpcap xz openssl keyutils-libs libkadm5 libcom_err libidn libcurl uuid libffi"
+	RUNTIME_DEPS="zlib bzip2 expat ncurses readline tk gdbm libpcap xz openssl keyutils-libs libkadm5 libcom_err libidn libcurl uuid libffi rsync"
 	if [ "${AUDITWHEEL_POLICY}" == "manylinux2010" ]; then
 		RUNTIME_DEPS="${RUNTIME_DEPS} db4"
 	else
