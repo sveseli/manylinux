@@ -133,6 +133,9 @@ FROM build_cpython AS build_cpython310
 COPY build_scripts/cpython-pubkey-310-311.txt /build_scripts/cpython-pubkeys.txt
 RUN manylinux-entrypoint /build_scripts/build-cpython.sh 3.10.1
 
+FROM build_cpython AS build_cpython311
+COPY build_scripts/cpython-pubkey-310-311.txt /build_scripts/cpython-pubkeys.txt
+RUN manylinux-entrypoint /build_scripts/build-cpython.sh 3.11.0
 
 FROM build_cpython AS all_python
 COPY build_scripts/install-pypy.sh \
@@ -146,6 +149,7 @@ COPY --from=build_cpython37 /opt/_internal /opt/_internal/
 COPY --from=build_cpython38 /opt/_internal /opt/_internal/
 COPY --from=build_cpython39 /opt/_internal /opt/_internal/
 COPY --from=build_cpython310 /opt/_internal /opt/_internal/
+COPY --from=build_cpython311 /opt/_internal /opt/_internal/
 RUN manylinux-entrypoint /build_scripts/finalize-python.sh
 
 
@@ -162,6 +166,7 @@ COPY build_scripts/finalize.sh \
      build_scripts/requirements3.8.txt \
      build_scripts/requirements3.9.txt \
      build_scripts/requirements3.10.txt \
+     build_scripts/requirements3.11.txt \
      build_scripts/requirements-base-tools.txt \
      build_scripts/requirements.pvapy.txt \
      /build_scripts/
