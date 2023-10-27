@@ -10,7 +10,7 @@ set -exu
 MY_DIR=$(dirname "$0")
 
 
-if [ "${AUDITWHEEL_PLAT}" = "manylinux2010_i686" ] || [ "${AUDITWHEEL_PLAT}" = "manylinux2014_i686" ]; then
+if [ "${AUDITWHEEL_PLAT}" = "manylinux2014_i686" ]; then
 	echo "i386" > /etc/yum/vars/basearch
 	fixup-mirrors
 	yum -y update
@@ -23,6 +23,6 @@ if [ "${AUDITWHEEL_PLAT}" = "manylinux2010_i686" ] || [ "${AUDITWHEEL_PLAT}" = "
 	LC_ALL=C "${MY_DIR}/update-system-packages.sh"
 fi
 
-if [ "${AUDITWHEEL_POLICY}" = "musllinux_1_1" ]; then
+if [ "${AUDITWHEEL_POLICY}" = "musllinux_1_1" ] || [ "${AUDITWHEEL_POLICY}" = "musllinux_1_2" ]; then
 	apk add --no-cache bash
 fi

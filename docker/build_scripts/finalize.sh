@@ -11,54 +11,29 @@ source $MY_DIR/build_utils.sh
 
 mkdir /opt/python
 for PREFIX in $(find /opt/_internal/ -mindepth 1 -maxdepth 1 \( -name 'cpython*' -o -name 'pypy*' \)); do
-	# Some python's install as bin/python3. Make them available as
-	# bin/python.
-        export LD_LIBRARY_PATH=${PREFIX}/lib
-	if [ -e ${PREFIX}/bin/python3 ] && [ ! -e ${PREFIX}/bin/python ]; then
-		ln -s python3 ${PREFIX}/bin/python
-	fi
-	${PREFIX}/bin/python -m ensurepip
-	if [ -e ${PREFIX}/bin/pip3 ] && [ ! -e ${PREFIX}/bin/pip ]; then
-		ln -s pip3 ${PREFIX}/bin/pip
-	fi
-	PY_VER=$(${PREFIX}/bin/python -c "import sys; print('.'.join(str(v) for v in sys.version_info[:2]))")
-	# Since we fall back on a canned copy of pip, we might not have
-	# the latest pip and friends. Upgrade them to make sure.
-	${PREFIX}/bin/pip install -U --require-hashes -r ${MY_DIR}/requirements${PY_VER}.txt
-	# Create a symlink to PREFIX using the ABI_TAG in /opt/python/
-	ABI_TAG=$(${PREFIX}/bin/python ${MY_DIR}/python-tag-abi-tag.py)
-	ln -s ${PREFIX} /opt/python/${ABI_TAG}
-	# Make versioned python commands available directly in environment.
-	if [[ "${PREFIX}" == *"/pypy"* ]]; then
-		ln -s ${PREFIX}/bin/python /usr/local/bin/pypy${PY_VER}
-	else
-		ln -s ${PREFIX}/bin/python /usr/local/bin/python${PY_VER}
-	fi
-
-        # PVAPY stuff
-        IS_CP_ABI_TAG=`echo ${PREFIX} | grep cpython || /bin/true`
-        if [ ! -z "$IS_CP_ABI_TAG" ]; then
-            echo "Installing PVAPY requirements for ${ABI_TAG}"
-            PVAPY_ENV=/opt/pvapy/python-${PY_VER}
-            mkdir -p $PVAPY_ENV/etc
-            SETUP_FILE=$PVAPY_ENV/etc/setup.sh
-            cat > $SETUP_FILE << EOF
-#!/bin/sh
-export LD_LIBRARY_PATH=/opt/python/${ABI_TAG}/lib
-export PATH=/opt/python/${ABI_TAG}/bin:$PATH
-EOF
-            /opt/python/${ABI_TAG}/bin/python -m pip install -r ${MY_DIR}/requirements.pvapy.txt
-        fi
+	${MY_DIR}/finalize-one.sh ${PREFIX}
 done
+
+# create manylinux-interpreters script
+cat <<EOF > /usr/local/bin/manylinux-interpreters
+#!/bin/bash
+
+set -euo pipefail
+
+/opt/python/cp310-cp310/bin/python $MY_DIR/manylinux-interpreters.py "\$@"
+EOF
+chmod 755 /usr/local/bin/manylinux-interpreters
+
+MANYLINUX_INTERPRETERS_NO_CHECK=1 /usr/local/bin/manylinux-interpreters ensure "$@"
 
 # Create venv for auditwheel & certifi
 TOOLS_PATH=/opt/_internal/tools
-export LD_LIBRARY_PATH=/opt/python/cp39-cp39/lib
-/opt/python/cp39-cp39/bin/python -m venv $TOOLS_PATH
+export LD_LIBRARY_PATH=/opt/python/cp310-cp310/lib
+/opt/python/cp310-cp310/bin/python -m venv $TOOLS_PATH
 source $TOOLS_PATH/bin/activate
 
 # Install default packages
-pip install -U --require-hashes -r $MY_DIR/requirements3.9.txt
+pip install -U --require-hashes -r $MY_DIR/requirements3.10.txt
 # Install certifi and pipx
 pip install -U --require-hashes -r $MY_DIR/requirements-base-tools.txt
 
@@ -101,6 +76,7 @@ clean_pyc /opt/_internal
 
 # remove cache
 rm -rf /root/.cache
+rm -rf /tmp/* || true
 
 hardlink -cv /opt/_internal
 

@@ -11,6 +11,10 @@ from lastversion import latest
 from lastversion.Version import Version
 
 
+PROJECT_ROOT = Path(__file__).parent.parent.resolve(strict=True)
+DOCKERFILE = PROJECT_ROOT / "docker" / "Dockerfile"
+
+
 def _sha256(url):
     response = requests.get(
         url,
@@ -25,8 +29,7 @@ def _sha256(url):
 
 
 def _update_cpython(dry_run):
-    dockerfile = Path(__file__).parent / "docker" / "Dockerfile"
-    lines = dockerfile.read_text().splitlines()
+    lines = DOCKERFILE.read_text().splitlines()
     re_ = re.compile(r"^RUN.*/build-cpython.sh (?P<version>.*)$")
     for i in range(len(lines)):
         match = re_.match(lines[i])
@@ -42,7 +45,7 @@ def _update_cpython(dry_run):
             message = f"Bump CPython {current_version} → {latest_version}"
             print(message)
             if not dry_run:
-                dockerfile.write_text("\n".join(lines) + "\n")
+                DOCKERFILE.write_text("\n".join(lines) + "\n")
                 subprocess.check_call(["git", "commit", "-am", message])
 
 
@@ -52,14 +55,12 @@ def _update_with_root(tool, dry_run):
         "automake": "autotools-mirror/automake",
         "libtool": "autotools-mirror/libtool",
         "git": "git/git",
-        "swig": "swig/swig",
         "openssl": "openssl/openssl",
     }
     major = {
-        "openssl": "1.1"
+        "openssl": "3.0",
     }
-    dockerfile = Path(__file__).parent / "docker" / "Dockerfile"
-    lines = dockerfile.read_text().splitlines()
+    lines = DOCKERFILE.read_text().splitlines()
     re_ = re.compile(f"^RUN export {tool.upper()}_ROOT={tool}-(?P<version>\\S+) && \\\\$")
     for i in range(len(lines)):
         match = re_.match(lines[i])
@@ -77,14 +78,13 @@ def _update_with_root(tool, dry_run):
             message = f"Bump {tool} {current_version} → {latest_version}"
             print(message)
             if not dry_run:
-                dockerfile.write_text("\n".join(lines) + "\n")
+                DOCKERFILE.write_text("\n".join(lines) + "\n")
                 subprocess.check_call(["git", "commit", "-am", message])
         break
 
 
 def _update_sqlite(dry_run):
-    dockerfile = Path(__file__).parent / "docker" / "Dockerfile"
-    lines = dockerfile.read_text().splitlines()
+    lines = DOCKERFILE.read_text().splitlines()
     re_ = re.compile(f"^RUN export SQLITE_AUTOCONF_ROOT=sqlite-autoconf-(?P<version>\\S+) && \\\\$")
     for i in range(len(lines)):
         match = re_.match(lines[i])
@@ -110,7 +110,7 @@ def _update_sqlite(dry_run):
             message = f"Bump sqlite {current_version} → {latest_version}"
             print(message)
             if not dry_run:
-                dockerfile.write_text("\n".join(lines) + "\n")
+                DOCKERFILE.write_text("\n".join(lines) + "\n")
                 subprocess.check_call(["git", "commit", "-am", message])
         break
 
@@ -119,8 +119,7 @@ def _update_with_gh(tool, dry_run):
     repo = {
         "libxcrypt": "besser82/libxcrypt",
     }
-    dockerfile = Path(__file__).parent / "docker" / "Dockerfile"
-    lines = dockerfile.read_text().splitlines()
+    lines = DOCKERFILE.read_text().splitlines()
     re_ = re.compile(f"^RUN export {tool.upper()}_VERSION=(?P<version>\\S+) && \\\\$")
     for i in range(len(lines)):
         match = re_.match(lines[i])
@@ -137,7 +136,34 @@ def _update_with_gh(tool, dry_run):
             message = f"Bump {tool} {current_version} → {latest_version}"
             print(message)
             if not dry_run:
-                dockerfile.write_text("\n".join(lines) + "\n")
+                DOCKERFILE.write_text("\n".join(lines) + "\n")
+                subprocess.check_call(["git", "commit", "-am", message])
+        break
+
+
+def _update_tcltk(dry_run):
+    lines = DOCKERFILE.read_text().splitlines()
+    re_ = re.compile("^RUN export TCL_ROOT=tcl(?P<version>\\S+) && \\\\$")
+    for i in range(len(lines)):
+        match = re_.match(lines[i])
+        if match is None:
+            continue
+        current_version = Version(match["version"])
+        latest_version = latest("tcltk/tcl", only="core-8-6-")
+        if latest_version > current_version:
+            root = f"tcl{latest_version}"
+            url = re.match("^    export TCL_DOWNLOAD_URL=(?P<url>\\S+) && \\\\$", lines[i + 2])["url"]
+            sha256 = _sha256(f"{url}/{root}-src.tar.gz")
+            lines[i + 0] = f"RUN export TCL_ROOT={root} && \\"
+            lines[i + 1] = f"    export TCL_HASH={sha256} && \\"
+            root = f"tk{latest_version}"
+            sha256 = _sha256(f"{url}/{root}-src.tar.gz")
+            lines[i + 3] = f"    export TK_ROOT={root} && \\"
+            lines[i + 4] = f"    export TK_HASH={sha256} && \\"
+            message = f"Bump Tcl/Tk {current_version} → {latest_version}"
+            print(message)
+            if not dry_run:
+                DOCKERFILE.write_text("\n".join(lines) + "\n")
                 subprocess.check_call(["git", "commit", "-am", message])
         break
 
@@ -148,7 +174,8 @@ def main():
     args = parser.parse_args()
     _update_cpython(args.dry_run)
     _update_sqlite(args.dry_run)
-    for tool in ["autoconf", "automake", "libtool", "git", "swig", "openssl"]:
+    _update_tcltk(args.dry_run)
+    for tool in ["autoconf", "automake", "libtool", "git", "openssl"]:
         _update_with_root(tool, args.dry_run)
     for tool in ["libxcrypt"]:
         _update_with_gh(tool, args.dry_run)
