@@ -10,6 +10,7 @@ MY_DIR=$(dirname "${BASH_SOURCE[0]}")
 
 # Some python's install as bin/python3. Make them available as
 # bin/python.
+export LD_LIBRARY_PATH=${PREFIX}/lib
 if [ -e ${PREFIX}/bin/python3 ] && [ ! -e ${PREFIX}/bin/python ]; then
 	ln -s python3 ${PREFIX}/bin/python
 fi
@@ -35,3 +36,19 @@ if [[ "${PY_IMPL}" == "cpython" ]]; then
 	ln -s ${PREFIX}/bin/python /usr/local/bin/python${PY_VER}
 fi
 ln -s ${PREFIX}/bin/python /usr/local/bin/${PY_IMPL}${PY_VER}
+
+# PVAPY stuff
+IS_CP_ABI_TAG=`echo ${PREFIX} | grep cpython || /bin/true`
+if [ ! -z "$IS_CP_ABI_TAG" ]; then
+    echo "Installing PVAPY requirements for ${ABI_TAG}"
+    PVAPY_ENV=/opt/pvapy/python-${PY_VER}
+    mkdir -p $PVAPY_ENV/etc
+    SETUP_FILE=$PVAPY_ENV/etc/setup.sh
+    cat > $SETUP_FILE << EOF
+#!/bin/sh
+export LD_LIBRARY_PATH=/opt/python/${ABI_TAG}/lib
+export PATH=/opt/python/${ABI_TAG}/bin:$PATH
+EOF
+    /opt/python/${ABI_TAG}/bin/python -m pip install -r ${MY_DIR}/requirements.pvapy.txt
+fi
+
