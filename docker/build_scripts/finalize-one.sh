@@ -10,7 +10,6 @@ MY_DIR=$(dirname "${BASH_SOURCE[0]}")
 
 # Some python's install as bin/python3. Make them available as
 # bin/python.
-export LD_LIBRARY_PATH=${PREFIX}/lib
 if [ -e ${PREFIX}/bin/python3 ] && [ ! -e ${PREFIX}/bin/python ]; then
 	ln -s python3 ${PREFIX}/bin/python
 fi
