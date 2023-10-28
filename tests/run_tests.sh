@@ -6,6 +6,12 @@ set -exuo pipefail
 # Get script directory
 MY_DIR=$(dirname "${BASH_SOURCE[0]}")
 
+# Need LD_LIBRARY_PATH set
+export LD_LIBRARY_PATH=
+for PYTHON_DIR in /opt/python/cp*; do
+     export LD_LIBRARY_PATH=$PYTHON_DIR/lib:$LD_LIBRARY_PATH
+done
+
 if [ "${AUDITWHEEL_POLICY}" == "manylinux2014" ]; then
 	PACKAGE_MANAGER=yum
 elif [ "${AUDITWHEEL_POLICY:0:10}" == "musllinux_" ]; then

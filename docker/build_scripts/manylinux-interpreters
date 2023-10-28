@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -euo pipefail
+
+export LD_LIBRARY_PATH=""
+for p in `ls -c1 /opt/python | grep cp`; do
+    export LD_LIBRARY_PATH=/opt/python/$p/lib:$LD_LIBRARY_PATH
+done
+/opt/python/cp310-cp310/bin/python /opt/_internal/build_scripts/manylinux-interpreters.py "$@"
+

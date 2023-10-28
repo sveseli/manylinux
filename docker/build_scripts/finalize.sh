@@ -10,20 +10,13 @@ MY_DIR=$(dirname "${BASH_SOURCE[0]}")
 source $MY_DIR/build_utils.sh
 
 mkdir /opt/python
+export LD_LIBRARY_PATH=""
 for PREFIX in $(find /opt/_internal/ -mindepth 1 -maxdepth 1 \( -name 'cpython*' -o -name 'pypy*' \)); do
+        export LD_LIBRARY_PATH=${PREFIX}/lib:${LD_LIBRARY_PATH}
 	${MY_DIR}/finalize-one.sh ${PREFIX}
 done
 
-# create manylinux-interpreters script
-cat <<EOF > /usr/local/bin/manylinux-interpreters
-#!/bin/bash
-
-set -euo pipefail
-
-/opt/python/cp310-cp310/bin/python $MY_DIR/manylinux-interpreters.py "\$@"
-EOF
-chmod 755 /usr/local/bin/manylinux-interpreters
-
+# Run manylinux-interpreters
 MANYLINUX_INTERPRETERS_NO_CHECK=1 /usr/local/bin/manylinux-interpreters ensure "$@"
 
 # Create venv for auditwheel & certifi
@@ -77,6 +70,7 @@ clean_pyc /opt/_internal
 # remove cache
 rm -rf /root/.cache
 rm -rf /tmp/* || true
+rm -rf /build_scripts
 
 hardlink -cv /opt/_internal
 
