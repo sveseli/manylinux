@@ -1,14 +1,21 @@
+#!/usr/bin/env python
+
+# /// script
+# dependencies = ["lastversion>=3.5.0", "packaging", "requests"]
+# ///
+
 import argparse
 import hashlib
 import re
 import subprocess
 
+from collections import defaultdict
 from pathlib import Path
 
 import requests
 
 from lastversion import latest
-from lastversion.Version import Version
+from lastversion.version import Version
 
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve(strict=True)
@@ -30,23 +37,30 @@ def _sha256(url):
 
 def _update_cpython(dry_run):
     lines = DOCKERFILE.read_text().splitlines()
-    re_ = re.compile(r"^RUN.*/build-cpython.sh (?P<version>.*)$")
+    re_ = re.compile(r"^RUN.*/build-cpython.sh .*$")
+    updates = defaultdict(list)
     for i in range(len(lines)):
         match = re_.match(lines[i])
         if match is None:
             continue
-        current_version = Version(match["version"])
+        version = lines[i].strip().split()[3]
+        current_version = Version(version)
         latest_version = latest("python/cpython", major=f'{current_version.major}.{current_version.minor}', pre_ok=current_version.is_prerelease)
         if latest_version > current_version:
-            root = f"Python-{latest_version}"
-            url = f"https://www.python.org/ftp/python/{latest_version.major}.{latest_version.minor}.{latest_version.micro}"
-            _sha256(f"{url}/{root}.tgz")
-            lines[i] = lines[i].replace(match["version"], str(latest_version))
-            message = f"Bump CPython {current_version} → {latest_version}"
-            print(message)
-            if not dry_run:
-                DOCKERFILE.write_text("\n".join(lines) + "\n")
-                subprocess.check_call(["git", "commit", "-am", message])
+            key = (version, str(latest_version))
+            if len(updates[key]) == 0:
+                root = f"Python-{latest_version}"
+                url = f"https://www.python.org/ftp/python/{latest_version.major}.{latest_version.minor}.{latest_version.micro}"
+                _sha256(f"{url}/{root}.tar.xz")
+            updates[key].append(i)
+    for key in updates:
+        for i in updates[key]:
+            lines[i] = lines[i].replace(key[0], key[1])
+        message = f"Bump CPython {key[0]} → {key[1]}"
+        print(message)
+        if not dry_run:
+            DOCKERFILE.write_text("\n".join(lines) + "\n")
+            subprocess.check_call(["git", "commit", "-am", message])
 
 
 def _update_with_root(tool, dry_run):
@@ -56,9 +70,16 @@ def _update_with_root(tool, dry_run):
         "libtool": "autotools-mirror/libtool",
         "git": "git/git",
         "openssl": "openssl/openssl",
+        "curl": "curl/curl",
     }
     major = {
         "openssl": "3.0",
+    }
+    only = {
+        "autoconf": r"~v?[0-9]+\.[0-9]+(\.[0-9]+)?$",
+    }
+    exclude = {
+        "libtool": r"~2\.5\.[0-2]$",  # pre-release
     }
     lines = DOCKERFILE.read_text().splitlines()
     re_ = re.compile(f"^RUN export {tool.upper()}_ROOT={tool}-(?P<version>\\S+) && \\\\$")
@@ -67,7 +88,7 @@ def _update_with_root(tool, dry_run):
         if match is None:
             continue
         current_version = Version(match["version"], char_fix_required=tool=="openssl")
-        latest_version = latest(repo[tool], major=major.get(tool, None))
+        latest_version = latest(repo[tool], major=major.get(tool, None), only=only.get(tool, None), exclude=exclude.get(tool, None))
         if latest_version > current_version:
             root = f"{tool}-{latest_version}"
             url = re.match(f"^    export {tool.upper()}_DOWNLOAD_URL=(?P<url>\\S+) && \\\\$", lines[i + 2])["url"]
@@ -150,7 +171,7 @@ def _update_tcltk(dry_run):
             continue
         current_version = Version(match["version"])
         latest_version = latest("tcltk/tcl", only="core-8-6-")
-        if latest_version > current_version:
+        if latest_version > current_version and str(latest_version) != "8.6.15":
             root = f"tcl{latest_version}"
             url = re.match("^    export TCL_DOWNLOAD_URL=(?P<url>\\S+) && \\\\$", lines[i + 2])["url"]
             sha256 = _sha256(f"{url}/{root}-src.tar.gz")
@@ -175,7 +196,7 @@ def main():
     _update_cpython(args.dry_run)
     _update_sqlite(args.dry_run)
     _update_tcltk(args.dry_run)
-    for tool in ["autoconf", "automake", "libtool", "git", "openssl"]:
+    for tool in ["autoconf", "automake", "libtool", "git", "openssl", "curl"]:
         _update_with_root(tool, args.dry_run)
     for tool in ["libxcrypt"]:
         _update_with_gh(tool, args.dry_run)

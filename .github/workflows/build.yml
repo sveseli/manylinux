@@ -14,12 +14,14 @@ on:
     paths:
       - ".github/workflows/build.yml"
       - "docker/**"
+      - "tests/**"
       - "*.sh"
   pull_request:
     paths:
       - ".github/workflows/build.yml"
       - "docker/**"
-      - "build.sh"
+      - "tests/**"
+      - "*.sh"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -29,15 +31,18 @@ jobs:
   build_manylinux:
     name: ${{ matrix.policy }}_${{ matrix.platform }}
     runs-on: ubuntu-22.04
+    permissions:
+      actions: write # this permission is needed to delete cache
     strategy:
       fail-fast: false
       matrix:
-        policy: ["manylinux2014", "musllinux_1_1", "musllinux_1_2"]
-        platform: ["i686", "x86_64"]
+        policy: ["manylinux2014", "manylinux_2_28", "manylinux_2_34", "musllinux_1_2"]
+        platform: ["x86_64"]
         include:
-          - policy: "manylinux_2_28"
-            platform: "x86_64"
-
+          - policy: "manylinux2014"
+            platform: "i686"
+          - policy: "musllinux_1_2"
+            platform: "i686"
     env:
       POLICY: ${{ matrix.policy }}
       PLATFORM: ${{ matrix.platform }}
@@ -46,6 +51,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
 
       - name: Set up emulation
         if: matrix.platform != 'i686' && matrix.platform != 'x86_64'
@@ -56,16 +63,30 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Setup cache
+      - name: Restore cache
         if: github.event_name != 'workflow_dispatch' || fromJSON(github.event.inputs.useCache)
-        uses: actions/cache@v3
+        uses: actions/cache/restore@v4
         with:
           path: .buildx-cache-${{ matrix.policy }}_${{ matrix.platform }}/*
-          key: buildx-cache-${{ matrix.policy }}-${{ matrix.platform }}-${{ hashFiles('docker/**') }}
-          restore-keys: buildx-cache-${{ matrix.policy }}-${{ matrix.platform }}-
+          key: buildx-cache-${{ matrix.policy }}-${{ matrix.platform }}
 
       - name: Build
         run: ./build.sh
+
+      - name: Delete cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          KEY="buildx-cache-${{ matrix.policy }}-${{ matrix.platform }}"
+          gh cache delete ${KEY} || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Save cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: .buildx-cache-${{ matrix.policy }}_${{ matrix.platform }}/*
+          key: buildx-cache-${{ matrix.policy }}-${{ matrix.platform }}
 
       - name: Deploy
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'pypa/manylinux'

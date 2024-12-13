@@ -32,9 +32,9 @@ source $MY_DIR/build_utils.sh
 
 
 # MANYLINUX_DEPS: Install development packages (except for libgcc which is provided by gcc install)
-if [ "${AUDITWHEEL_POLICY}" == "manylinux2014" ] || [ "${AUDITWHEEL_POLICY}" == "manylinux_2_28" ]; then
+if [ "${OS_ID_LIKE}" == "rhel" ]; then
 	MANYLINUX_DEPS="glibc-devel libstdc++-devel glib2-devel libX11-devel libXext-devel libXrender-devel mesa-libGL-devel libICE-devel libSM-devel zlib-devel expat-devel gcc gcc-c++"
-elif [ "${BASE_POLICY}" == "musllinux" ]; then
+elif [ "${OS_ID_LIKE}" == "alpine" ]; then
 	MANYLINUX_DEPS="musl-dev libstdc++ glib-dev libx11-dev libxext-dev libxrender-dev mesa-dev libice-dev libsm-dev zlib-dev expat-dev"
 else
 	echo "Unsupported policy: '${AUDITWHEEL_POLICY}'"
@@ -42,23 +42,26 @@ else
 fi
 
 # RUNTIME_DEPS: Runtime dependencies. c.f. install-build-packages.sh
-if [ "${AUDITWHEEL_POLICY}" == "manylinux2014" ] || [ "${AUDITWHEEL_POLICY}" == "manylinux_2_28" ]; then
+if [ "${OS_ID_LIKE}" == "rhel" ]; then
 	RUNTIME_DEPS="zlib bzip2 expat ncurses readline gdbm libpcap xz openssl keyutils-libs libkadm5 libcom_err libidn libcurl uuid libffi libdb rsync"
 	if [ "${AUDITWHEEL_POLICY}" == "manylinux2014" ]; then
-		RUNTIME_DEPS="${RUNTIME_DEPS} libXft"
+		RUNTIME_DEPS="${RUNTIME_DEPS} libidn libXft"
 	elif [ "${AUDITWHEEL_POLICY}" == "manylinux_2_28" ]; then
-		RUNTIME_DEPS="${RUNTIME_DEPS} tk"
+		RUNTIME_DEPS="${RUNTIME_DEPS} libidn tk"
+	else
+		RUNTIME_DEPS="${RUNTIME_DEPS} libidn2 tk"
+		# for graalpy
+		RUNTIME_DEPS="${RUNTIME_DEPS} libxcrypt-compat"
 	fi
-elif [ "${BASE_POLICY}" == "musllinux" ]; then
+elif [ "${OS_ID_LIKE}" == "alpine" ]; then
 	RUNTIME_DEPS="zlib bzip2 expat ncurses-libs readline tk gdbm db xz openssl keyutils-libs krb5-libs libcom_err libidn2 libcurl libuuid libffi"
 else
 	echo "Unsupported policy: '${AUDITWHEEL_POLICY}'"
 	exit 1
 fi
 
-BASETOOLS="autoconf automake bison bzip2 diffutils file make patch unzip"
+BASETOOLS="autoconf automake bison bzip2 ca-certificates curl diffutils file make patch unzip"
 if [ "${AUDITWHEEL_POLICY}" == "manylinux2014" ]; then
-	PACKAGE_MANAGER=yum
 	BASETOOLS="${BASETOOLS} hardlink hostname which"
 	# See https://unix.stackexchange.com/questions/41784/can-yum-express-a-preference-for-x86-64-over-i386-packages
 	echo "multilib_policy=best" >> /etc/yum.conf
@@ -66,17 +69,32 @@ if [ "${AUDITWHEEL_POLICY}" == "manylinux2014" ]; then
 	echo "skip_missing_names_on_install=False" >> /etc/yum.conf
 	# Make sure that locale will not be removed
 	sed -i '/^override_install_langs=/d' /etc/yum.conf
-	# Exclude mirror holding broken package metadata
-	echo "exclude = d36uatko69830t.cloudfront.net" >> /etc/yum/pluginconf.d/fastestmirror.conf
+
+	# we don't need those in the first place & updates are taking a lot of space on aarch64
+	# the intent is in the upstream image creation but it got messed up at some point
+	# https://github.com/CentOS/sig-cloud-instance-build/blob/98aa8c6f0290feeb94d86b52c561d70eabc7d942/docker/centos-7-x86_64.ks#L43
+	if rpm -q kernel-modules; then
+		rpm -e kernel-modules
+	fi
+	if rpm -q kernel-core; then
+		rpm -e --noscripts kernel-core
+	fi
+	if rpm -q bind-license; then
+		yum -y erase bind-license qemu-guest-agent
+	fi
+	fixup-mirrors
 	yum -y update
+	fixup-mirrors
 	yum -y install yum-utils curl
 	yum-config-manager --enable extras
 	TOOLCHAIN_DEPS="devtoolset-10-binutils devtoolset-10-gcc devtoolset-10-gcc-c++ devtoolset-10-gcc-gfortran"
 	if [ "${AUDITWHEEL_ARCH}" == "x86_64" ]; then
 		# Software collection (for devtoolset-10)
 		yum -y install centos-release-scl-rh
-		# EPEL support (for yasm)
-		yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+		if ! rpm -q epel-release-7-14.noarch; then
+			# EPEL support (for yasm)
+			yum -y install https://archives.fedoraproject.org/pub/archive/epel/7/x86_64/Packages/e/epel-release-7-14.noarch.rpm
+		fi
 		TOOLCHAIN_DEPS="${TOOLCHAIN_DEPS} yasm"
 	elif [ "${AUDITWHEEL_ARCH}" == "aarch64" ] || [ "${AUDITWHEEL_ARCH}" == "ppc64le" ] || [ "${AUDITWHEEL_ARCH}" == "s390x" ]; then
 		# Software collection (for devtoolset-10)
@@ -86,42 +104,31 @@ if [ "${AUDITWHEEL_POLICY}" == "manylinux2014" ]; then
 		# Install mayeut/devtoolset-10 repo to get devtoolset-10
 		curl -fsSLo /etc/yum.repos.d/mayeut-devtoolset-10.repo https://copr.fedorainfracloud.org/coprs/mayeut/devtoolset-10/repo/custom-1/mayeut-devtoolset-10-custom-1.repo
 	fi
-elif [ "${AUDITWHEEL_POLICY}" == "manylinux_2_28" ]; then
-	PACKAGE_MANAGER=dnf
-	BASETOOLS="${BASETOOLS} curl glibc-locale-source glibc-langpack-en hardlink hostname libcurl libnsl libxcrypt which"
-	# See https://unix.stackexchange.com/questions/41784/can-yum-express-a-preference-for-x86-64-over-i386-packages
-	echo "multilib_policy=best" >> /etc/yum.conf
-	# Error out if requested packages do not exist
-	echo "skip_missing_names_on_install=False" >> /etc/yum.conf
-	# Make sure that locale will not be removed
-	sed -i '/^override_install_langs=/d' /etc/yum.conf
+	fixup-mirrors
+elif [ "${OS_ID_LIKE}" == "rhel" ]; then
+	BASETOOLS="${BASETOOLS} glibc-locale-source glibc-langpack-en hardlink hostname libcurl libnsl libxcrypt which"
+	echo "tsflags=nodocs" >> /etc/dnf/dnf.conf
 	dnf -y upgrade
-	dnf -y install dnf-plugins-core
-	dnf config-manager --set-enabled powertools # for yasm
-	TOOLCHAIN_DEPS="gcc-toolset-12-binutils gcc-toolset-12-gcc gcc-toolset-12-gcc-c++ gcc-toolset-12-gcc-gfortran"
+	dnf -y install dnf-plugins-core epel-release
+	if [ "${AUDITWHEEL_POLICY}" == "manylinux_2_28" ]; then
+		dnf config-manager --set-enabled powertools
+		TOOLCHAIN_DEPS="gcc-toolset-13-binutils gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-gcc-gfortran"
+	else
+		dnf config-manager --set-enabled crb
+		TOOLCHAIN_DEPS="gcc-toolset-14-binutils gcc-toolset-14-gcc gcc-toolset-14-gcc-c++ gcc-toolset-14-gcc-gfortran"
+	fi
 	if [ "${AUDITWHEEL_ARCH}" == "x86_64" ]; then
 		TOOLCHAIN_DEPS="${TOOLCHAIN_DEPS} yasm"
 	fi
-elif [ "${BASE_POLICY}" == "musllinux" ]; then
+elif [ "${OS_ID_LIKE}" == "alpine" ]; then
 	TOOLCHAIN_DEPS="binutils gcc g++ gfortran"
-	BASETOOLS="${BASETOOLS} curl util-linux tar"
-	PACKAGE_MANAGER=apk
-	apk add --no-cache ca-certificates gnupg
+	BASETOOLS="${BASETOOLS} gnupg util-linux shadow tar"
 else
 	echo "Unsupported policy: '${AUDITWHEEL_POLICY}'"
 	exit 1
 fi
 
-if [ "${PACKAGE_MANAGER}" == "yum" ]; then
-	yum -y install ${BASETOOLS} ${TOOLCHAIN_DEPS} ${MANYLINUX_DEPS} ${RUNTIME_DEPS}
-elif [ "${PACKAGE_MANAGER}" == "apk" ]; then
-	apk add --no-cache ${BASETOOLS} ${TOOLCHAIN_DEPS} ${MANYLINUX_DEPS} ${RUNTIME_DEPS}
-elif [ "${PACKAGE_MANAGER}" == "dnf" ]; then
-	dnf -y install --allowerasing ${BASETOOLS} ${TOOLCHAIN_DEPS} ${MANYLINUX_DEPS} ${RUNTIME_DEPS}
-else
-	echo "Not implemented"
-	exit 1
-fi
+manylinux_pkg_install ${BASETOOLS} ${TOOLCHAIN_DEPS} ${MANYLINUX_DEPS} ${RUNTIME_DEPS}
 
 # update system packages, we already updated them but
 # the following script takes care of cleaning-up some things
@@ -136,4 +143,8 @@ if [ "${BASE_POLICY}" == "manylinux" ]; then
 	# c.f. https://github.com/pypa/manylinux/issues/1022
 	echo "/usr/local/lib" > /etc/ld.so.conf.d/00-manylinux.conf
 	ldconfig
+else
+	# set the default shell to bash
+	chsh -s /bin/bash root
+	useradd -D -s /bin/bash
 fi
