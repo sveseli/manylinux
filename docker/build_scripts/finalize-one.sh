@@ -51,20 +51,19 @@ chmod +x /usr/local/bin/${PY_IMPL}${PY_VER}${PY_GIL}
 if [[ "${PY_IMPL}" == "cpython" ]]; then
 	ln -s ${PY_IMPL}${PY_VER}${PY_GIL} /usr/local/bin/python${PY_VER}${PY_GIL}
 fi
-ln -s ${PREFIX}/bin/python /usr/local/bin/${PY_IMPL}${PY_VER}
+#ln -s ${PREFIX}/bin/python /usr/local/bin/${PY_IMPL}${PY_VER}
 
 # PVAPY stuff
-IS_CP_ABI_TAG=`echo ${PREFIX} | grep cpython || /bin/true`
-if [ ! -z "$IS_CP_ABI_TAG" ]; then
-    #echo "Installing PVAPY requirements for ${ABI_TAG}"
-    PVAPY_ENV=/opt/pvapy/python-${PY_VER}
-    mkdir -p $PVAPY_ENV/etc
-    SETUP_FILE=$PVAPY_ENV/etc/setup.sh
-    cat > $SETUP_FILE << EOF
-#!/bin/sh
-export LD_LIBRARY_PATH=/opt/python/${ABI_TAG}/lib
-export PATH=/opt/python/${ABI_TAG}/bin:$PATH
-EOF
-    #/opt/python/${ABI_TAG}/bin/python -m pip install -r ${MY_DIR}/requirements.pvapy.txt
-fi
-
+#IS_CP_ABI_TAG=`echo ${PREFIX} | grep cpython || /bin/true`
+#if [ ! -z "$IS_CP_ABI_TAG" ]; then
+#    #echo "Installing PVAPY requirements for ${ABI_TAG}"
+#    PVAPY_ENV=/opt/pvapy/python-${PY_VER}
+#    mkdir -p $PVAPY_ENV/etc
+#    SETUP_FILE=$PVAPY_ENV/etc/setup.sh
+#    cat > $SETUP_FILE << EOF
+# #!/bin/sh
+# export LD_LIBRARY_PATH=/opt/python/${ABI_TAG}/lib
+# export PATH=/opt/python/${ABI_TAG}/bin:$PATH
+# EOF
+#    #/opt/python/${ABI_TAG}/bin/python -m pip install -r ${MY_DIR}/requirements.pvapy.txt
+# fi
