@@ -102,6 +102,11 @@ hardlink -c /opt/_internal
 # update system packages
 LC_ALL=C ${MY_DIR}/update-system-packages.sh
 
-# Add links for EPICS
-rm -f /usr/bin/gcc && ln -s /opt/rh/devtoolset-10/root/usr/bin/gcc /usr/bin/gcc
-rm -f /usr/bin/g++ && ln -s /opt/rh/devtoolset-10/root/usr/bin/gcc /usr/bin/g++
+# Add links to /usr/bin executables for EPICS
+DEVTOOLSET_ROOT=/opt/rh/devtoolset-10/root
+for e in `ls -c1 $DEVTOOLSET_ROOT/usr/bin/`; do
+    if [ -f /usr/bin/$e ]; then
+        echo "Moving /usr/bin/$e to /usr/bin/$e.orig, replacing it with $DEVTOOLSET_ROOT/usr/bin/$e"
+        mv /usr/bin/$e /usr/bin/$e.orig && ln -s $DEVTOOLSET_ROOT/usr/bin/$e /usr/bin/$e
+    fi
+done
